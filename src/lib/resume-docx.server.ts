@@ -2,7 +2,6 @@ import {
   AlignmentType,
   BorderStyle,
   Document,
-  HeadingLevel,
   LevelFormat,
   Packer,
   Paragraph,
