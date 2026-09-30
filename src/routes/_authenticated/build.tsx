@@ -91,8 +91,8 @@ function BuildPage() {
     setProfile((p) => ({ ...p, [key]: value }));
 
   async function handleGenerate() {
-    if (jd.trim().length < 40) return toast.error("Paste the full job description first.");
-    if (!profile.experience.some((r) => r.employer.trim())) return toast.error("Add at least one employer.");
+    if (jd.trim().length < 40) { toast.error("Paste the full job description first."); return; }
+    if (!profile.experience.some((r) => r.employer.trim())) { toast.error("Add at least one employer."); return; }
     setBusy(true);
     try {
       const res = await runGenerate({ data: { jobDescription: jd, detailLevel: level, profile } });
