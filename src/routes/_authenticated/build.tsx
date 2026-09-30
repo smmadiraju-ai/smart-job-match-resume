@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState, type ReactNode } from "react";
-import { FileDown, FileText, Loader2, LogOut, Plus, Sparkles, Trash2 } from "lucide-react";
+import { FileDown, FileText, Loader2, Lock, LogOut, Plus, Sparkles, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -186,10 +186,22 @@ function BuildPage() {
           </Section>
 
           <Section title="2. Your details">
+            <div className="rounded-xl border border-gold/40 bg-gold/5 p-3 text-xs text-muted-foreground">
+              Your name is locked to your account. Resumes can only be created in your own name — for as many job
+              descriptions as you like.
+            </div>
+            <div className="space-y-1.5">
+              <Label>Full name (locked)</Label>
+              <div className="flex h-9 items-center gap-2 rounded-md border border-input bg-muted/60 px-3 text-sm">
+                <Lock className="size-3.5 shrink-0 text-muted-foreground" />
+                <span className={cn("truncate", !profile.full_name && "text-muted-foreground")}>
+                  {profile.full_name || "Taken from your sign-in"}
+                </span>
+              </div>
+            </div>
             <div className="grid gap-3 sm:grid-cols-2">
               {(
                 [
-                  ["full_name", "Full name"],
                   ["email", "Email"],
                   ["phone", "Phone"],
                   ["location", "Location"],
