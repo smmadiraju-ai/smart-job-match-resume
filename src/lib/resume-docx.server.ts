@@ -1,3 +1,4 @@
+import { HeadingLevel } from "docx";
 import {
   AlignmentType,
   BorderStyle,
