@@ -1,4 +1,4 @@
-import { NoObjectGeneratedError, Output, streamText } from "ai";
+import { streamText } from "ai";
 import { z } from "zod";
 
 import { RESPONSES_PROVIDER_OPTIONS, RESUME_MODEL, createResponsesProvider } from "./ai/responses.server";
@@ -87,26 +87,23 @@ DETAIL LEVEL: ${level.label}
 
   const result = streamText({
     model: provider.responses(RESUME_MODEL),
-    system: SYSTEM_PROMPT,
+    system: SYSTEM_PROMPT + JSON_INSTRUCTIONS,
     prompt,
     providerOptions: RESPONSES_PROVIDER_OPTIONS,
-    experimental_output: Output.object({ schema: resumeSchema }),
   });
 
-  try {
-    const output = await result.experimental_output;
-    return normalize(output as ResumeContent, input.profile);
-  } catch (error) {
-    if (NoObjectGeneratedError.isInstance(error) && error.text) {
-      const match = error.text.match(/\{[\s\S]*\}/);
-      if (match) {
-        const parsed = resumeSchema.safeParse(JSON.parse(match[0]));
-        if (parsed.success) return normalize(parsed.data as ResumeContent, input.profile);
-      }
-    }
-    throw error;
-  }
+  const text = await result.text;
+  const match = text.match(/\{[\s\S]*\}/);
+  if (!match) throw new Error("The AI did not return a resume. Please try again.");
+  const parsed = resumeSchema.safeParse(JSON.parse(match[0]));
+  if (!parsed.success) throw new Error("The AI returned an incomplete resume. Please try again.");
+  return normalize(parsed.data, input.profile);
 }
+
+const JSON_INSTRUCTIONS = `
+
+Respond with ONLY a JSON object (no prose, no code fences) of this exact shape:
+{"headline": string, "summary": string[], "skillGroups": [{"label": string, "items": string[]}], "experience": [{"title": string, "employer": string, "location": string, "dates": string, "bullets": string[]}], "education": string[], "certifications": string}`;
 
 function normalize(content: ResumeContent, profile: ProfileInput): ResumeContent {
   const facts = profile.experience.filter((role) => role.employer.trim() || role.title.trim());
