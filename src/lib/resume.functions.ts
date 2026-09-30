@@ -77,7 +77,7 @@ async function lockedName(context: NameContext): Promise<string> {
 
   const { data } = await context.supabase.auth.getUser();
   const meta = (data.user?.user_metadata ?? {}) as Record<string, unknown>;
-  const fromMeta = typeof meta.full_name === "string" ? meta.full_name.trim() : "";
+  const fromMeta = typeof meta["full_name"] === "string" ? (meta["full_name"] as string).trim() : "";
   const fromEmail = data.user?.email?.split("@")[0]?.replace(/[._-]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) ?? "";
   const derived = fromMeta || fromEmail;
 
