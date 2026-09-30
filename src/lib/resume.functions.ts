@@ -60,17 +60,48 @@ export const getMyProfile = createServerFn({ method: "GET" })
     } satisfies ProfileInput;
   });
 
+// The resume name is locked to the signed-in account. It is read from the
+// stored profile once (falling back to the auth user's name/email) and can
+// never be overwritten by client input, so a user can only build resumes in
+// their own name.
+type NameContext = { supabase: import("@supabase/supabase-js").SupabaseClient; userId: string };
+
+async function lockedName(context: NameContext): Promise<string> {
+  const existing = await context.supabase
+    .from("profiles")
+    .select("full_name")
+    .eq("id", context.userId)
+    .maybeSingle();
+  const current = (existing.data?.full_name as string | null)?.trim();
+  if (current) return current;
+
+  const { data } = await context.supabase.auth.getUser();
+  const meta = (data.user?.user_metadata ?? {}) as Record<string, unknown>;
+  const fromMeta = typeof meta.full_name === "string" ? meta.full_name.trim() : "";
+  const fromEmail = data.user?.email?.split("@")[0]?.replace(/[._-]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) ?? "";
+  const derived = fromMeta || fromEmail;
+
+  if (derived) {
+    await context.supabase
+      .from("profiles")
+      .upsert({ id: context.userId, full_name: derived, updated_at: new Date().toISOString() });
+  }
+  return derived;
+}
+
 export const saveMyProfile = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => profileSchema.parse(data))
   .handler(async ({ data, context }) => {
+    const full_name = await lockedName(context);
     const { error } = await context.supabase.from("profiles").upsert({
       id: context.userId,
       ...data,
+      full_name,
       updated_at: new Date().toISOString(),
     });
     if (error) throw new Error(error.message);
-    return { ok: true };
+    return { ok: true, full_name };
   });
 
 export const generateResume = createServerFn({ method: "POST" })
@@ -87,13 +118,16 @@ export const generateResume = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { generateResumeContent } = await import("./resume-generate.server");
 
+    const full_name = await lockedName(context);
+    const profile = { ...data.profile, full_name };
+
     await context.supabase.from("profiles").upsert({
       id: context.userId,
-      ...data.profile,
+      ...profile,
       updated_at: new Date().toISOString(),
     });
 
-    const content = await generateResumeContent(data);
+    const content = await generateResumeContent({ ...data, profile });
 
     const title = `${content.headline?.split("|")[0]?.trim() || "Resume"} — ${new Date().toLocaleDateString(
       "en-US",
