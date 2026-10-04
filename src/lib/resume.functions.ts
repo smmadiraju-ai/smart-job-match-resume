@@ -93,15 +93,13 @@ export const saveMyProfile = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => profileSchema.parse(data))
   .handler(async ({ data, context }) => {
-    const full_name = await lockedName(context);
     const { error } = await context.supabase.from("profiles").upsert({
       id: context.userId,
       ...data,
-      full_name,
       updated_at: new Date().toISOString(),
     });
     if (error) throw new Error(error.message);
-    return { ok: true, full_name };
+    return { ok: true, full_name: data.full_name };
   });
 
 export const generateResume = createServerFn({ method: "POST" })
@@ -118,8 +116,7 @@ export const generateResume = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { generateResumeContent } = await import("./resume-generate.server");
 
-    const full_name = await lockedName(context);
-    const profile = { ...data.profile, full_name };
+    const profile = data.profile;
 
     await context.supabase.from("profiles").upsert({
       id: context.userId,
