@@ -78,6 +78,7 @@ function BuildPage() {
 
   const [profile, setProfile] = useState<ProfileInput>(emptyProfile());
   const [jd, setJd] = useState("");
+  const [resumeText, setResumeText] = useState("");
   const [level, setLevel] = useState<DetailLevel>("more");
   const [busy, setBusy] = useState(false);
   const [downloading, setDownloading] = useState(false);
@@ -92,10 +93,10 @@ function BuildPage() {
 
   async function handleGenerate() {
     if (jd.trim().length < 40) { toast.error("Paste the full job description first."); return; }
-    if (!profile.experience.some((r) => r.employer.trim())) { toast.error("Add at least one employer."); return; }
+    if (resumeText.trim().length < 80) { toast.error("Paste your current resume first."); return; }
     setBusy(true);
     try {
-      const res = await runGenerate({ data: { jobDescription: jd, detailLevel: level, profile } });
+      const res = await runGenerate({ data: { jobDescription: jd, detailLevel: level, resumeText } });
       setResult({ id: res.id, content: res.content });
       queryClient.invalidateQueries({ queryKey: ["resumes"] });
       toast.success("Your resume is ready.");
@@ -176,118 +177,15 @@ function BuildPage() {
             </div>
           </Section>
 
-          <Section title="2. Your details">
-            <div className="space-y-1.5">
-              <Label>Full name</Label>
-              <Input value={profile.full_name} onChange={(e) => set("full_name", e.target.value)} />
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {(
-                [
-                  ["email", "Email"],
-                  ["phone", "Phone"],
-                  ["location", "Location"],
-                  ["linkedin", "LinkedIn"],
-                  ["headline", "Target title (optional)"],
-                ] as const
-              ).map(([key, label]) => (
-                <div key={key} className="space-y-1.5">
-                  <Label>{label}</Label>
-                  <Input value={profile[key]} onChange={(e) => set(key, e.target.value)} />
-                </div>
-              ))}
-            </div>
-          </Section>
-
-          <Section title="3. Experience">
-            <p className="text-sm text-muted-foreground">Just the facts — the AI writes the duties to match the job.</p>
-            {profile.experience.map((role, i) => (
-              <div key={i} className="rounded-xl border border-border p-4">
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {(
-                    [
-                      ["employer", "Employer name"],
-                      ["title", "Job title"],
-                      ["location", "Location"],
-                      ["startDate", "Start date"],
-                      ["endDate", "End date (or Present)"],
-                    ] as const
-                  ).map(([key, label]) => (
-                    <div key={key} className="space-y-1.5">
-                      <Label>{label}</Label>
-                      <Input
-                        value={role[key]}
-                        onChange={(e) =>
-                          set(
-                            "experience",
-                            profile.experience.map((r, j) => (j === i ? { ...r, [key]: e.target.value } : r)),
-                          )
-                        }
-                      />
-                    </div>
-                  ))}
-                </div>
-                {profile.experience.length > 1 && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="mt-3"
-                    onClick={() => set("experience", profile.experience.filter((_, j) => j !== i))}
-                  >
-                    <Trash2 className="size-4" /> Remove
-                  </Button>
-                )}
-              </div>
-            ))}
-            <Button variant="outline" onClick={() => set("experience", [...profile.experience, emptyExperience()])}>
-              <Plus className="size-4" /> Add experience
-            </Button>
-          </Section>
-
-          <Section title="4. Education">
-            {profile.education.map((ed, i) => (
-              <div key={i} className="grid gap-3 sm:grid-cols-[2fr_2fr_1fr_auto] sm:items-end">
-                {(
-                  [
-                    ["degree", "Degree"],
-                    ["school", "School"],
-                    ["year", "Year"],
-                  ] as const
-                ).map(([key, label]) => (
-                  <div key={key} className="space-y-1.5">
-                    <Label>{label}</Label>
-                    <Input
-                      value={ed[key]}
-                      onChange={(e) =>
-                        set(
-                          "education",
-                          profile.education.map((r, j) => (j === i ? { ...r, [key]: e.target.value } : r)),
-                        )
-                      }
-                    />
-                  </div>
-                ))}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label="Remove education"
-                  onClick={() => set("education", profile.education.filter((_, j) => j !== i))}
-                >
-                  <Trash2 className="size-4" />
-                </Button>
-              </div>
-            ))}
-            <Button variant="outline" onClick={() => set("education", [...profile.education, emptyEducation()])}>
-              <Plus className="size-4" /> Add education
-            </Button>
-          </Section>
-
-          <Section title="5. Certifications">
+          <Section title="2. Your current resume">
+            <p className="text-sm text-muted-foreground">
+              Paste your whole resume. We keep your name, contact details, employers, dates, education and certifications — and rewrite your roles and duties to match the job.
+            </p>
             <Textarea
-              rows={3}
-              value={profile.certifications}
-              onChange={(e) => set("certifications", e.target.value)}
-              placeholder="e.g. PMP, OSHA 30, LEED AP"
+              rows={14}
+              value={resumeText}
+              onChange={(e) => setResumeText(e.target.value)}
+              placeholder="Paste your current resume here…"
             />
           </Section>
 
@@ -308,10 +206,10 @@ function BuildPage() {
                   Download Word
                 </Button>
                 <article className="max-h-[70vh] overflow-auto rounded-xl border border-border bg-background p-6 text-sm leading-relaxed">
-                  <h3 className="text-center text-xl font-bold uppercase">{profile.full_name}</h3>
+                  <h3 className="text-center text-xl font-bold uppercase">{result.content.contact?.fullName || profile.full_name}</h3>
                   <p className="text-center font-bold uppercase">{result.content.headline}</p>
                   <p className="text-center text-xs text-muted-foreground">
-                    {[profile.email, profile.phone, profile.location, profile.linkedin].filter(Boolean).join(" | ")}
+                    {(result.content.contact ? [result.content.contact.email, result.content.contact.phone, result.content.contact.location, result.content.contact.linkedin] : [profile.email, profile.phone, profile.location, profile.linkedin]).filter(Boolean).join(" | ")}
                   </p>
                   <Heading>Professional Summary</Heading>
                   <ul className="list-disc space-y-1 pl-5">

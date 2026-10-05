@@ -80,22 +80,14 @@ export const generateResume = createServerFn({ method: "POST" })
       .object({
         jobDescription: z.string().min(40, "Paste a longer job description."),
         detailLevel: z.enum(["little", "more", "heavy"]),
-        profile: profileSchema,
+        resumeText: z.string().min(80, "Paste your full current resume."),
       })
       .parse(data),
   )
   .handler(async ({ data, context }) => {
     const { generateResumeContent } = await import("./resume-generate.server");
 
-    const profile = data.profile;
-
-    await context.supabase.from("profiles").upsert({
-      id: context.userId,
-      ...profile,
-      updated_at: new Date().toISOString(),
-    });
-
-    const content = await generateResumeContent({ ...data, profile });
+    const content = await generateResumeContent(data);
 
     const title = `${content.headline?.split("|")[0]?.trim() || "Resume"} — ${new Date().toLocaleDateString(
       "en-US",
@@ -155,15 +147,18 @@ export const downloadResumeDocx = createServerFn({ method: "POST" })
     ]);
     if (resume.error) throw new Error(resume.error.message);
 
-    const base64 = await buildResumeDocx(resume.data.content as unknown as ResumeContent, {
-      fullName: profile.data?.full_name ?? "",
-      phone: profile.data?.phone ?? "",
-      email: profile.data?.email ?? "",
-      location: profile.data?.location ?? "",
-      linkedin: profile.data?.linkedin ?? "",
+    const content = resume.data.content as unknown as ResumeContent;
+    const c = content.contact;
+    const fullName = c?.fullName || profile.data?.full_name || "";
+    const base64 = await buildResumeDocx(content, {
+      fullName,
+      phone: c?.phone ?? profile.data?.phone ?? "",
+      email: c?.email ?? profile.data?.email ?? "",
+      location: c?.location ?? profile.data?.location ?? "",
+      linkedin: c?.linkedin ?? profile.data?.linkedin ?? "",
     });
 
-    const fileName = `${(profile.data?.full_name || "resume").replace(/[^\w]+/g, "_")}_Resume.docx`;
+    const fileName = `${(fullName || "resume").replace(/[^\w]+/g, "_")}_Resume.docx`;
     return { base64, fileName };
   });
 

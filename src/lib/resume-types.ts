@@ -57,7 +57,10 @@ export type ProfileInput = {
   certifications: string;
 };
 
+export type ResumeContact = { fullName: string; email: string; phone: string; location: string; linkedin: string };
+
 export type ResumeContent = {
+  contact?: ResumeContact;
   headline: string;
   summary: string[];
   skillGroups: { label: string; items: string[] }[];
