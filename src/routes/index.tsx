@@ -60,7 +60,7 @@ function Landing() {
           <span className="font-display text-lg font-semibold tracking-tight">TailorCV</span>
         </div>
         <Button asChild variant="ghost">
-          <Link to="/auth">Sign in</Link>
+          <Link to="/build">Open builder</Link>
         </Button>
       </header>
 
@@ -79,7 +79,7 @@ function Landing() {
         </p>
         <div className="mt-9 flex flex-wrap items-center gap-3">
           <Button asChild size="lg">
-            <Link to="/auth">
+            <Link to="/build">
               Build my resume <ArrowRight className="size-4" />
             </Link>
           </Button>

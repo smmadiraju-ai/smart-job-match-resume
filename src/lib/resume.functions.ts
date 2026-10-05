@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireGuest as requireSupabaseAuth } from "@/lib/guest-middleware";
 import { emptyProfile, type ProfileInput, type ResumeContent } from "./resume-types";
 
 const experienceSchema = z.object({
