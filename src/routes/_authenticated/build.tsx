@@ -186,18 +186,9 @@ function BuildPage() {
           </Section>
 
           <Section title="2. Your details">
-            <div className="rounded-xl border border-gold/40 bg-gold/5 p-3 text-xs text-muted-foreground">
-              Your name is locked to your account. Resumes can only be created in your own name — for as many job
-              descriptions as you like.
-            </div>
             <div className="space-y-1.5">
-              <Label>Full name (locked)</Label>
-              <div className="flex h-9 items-center gap-2 rounded-md border border-input bg-muted/60 px-3 text-sm">
-                <Lock className="size-3.5 shrink-0 text-muted-foreground" />
-                <span className={cn("truncate", !profile.full_name && "text-muted-foreground")}>
-                  {profile.full_name || "Taken from your sign-in"}
-                </span>
-              </div>
+              <Label>Full name</Label>
+              <Input value={profile.full_name} onChange={(e) => set("full_name", e.target.value)} />
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               {(
