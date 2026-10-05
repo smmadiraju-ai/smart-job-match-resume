@@ -2,9 +2,10 @@ import { streamText } from "ai";
 import { z } from "zod";
 
 import { RESPONSES_PROVIDER_OPTIONS, RESUME_MODEL, createResponsesProvider } from "./ai/responses.server";
-import { DETAIL_LEVELS, type DetailLevel, type ProfileInput, type ResumeContent } from "./resume-types";
+import { DETAIL_LEVELS, type DetailLevel, type ResumeContent } from "./resume-types";
 
 const resumeSchema = z.object({
+  contact: z.object({ fullName: z.string(), email: z.string(), phone: z.string(), location: z.string(), linkedin: z.string() }),
   headline: z.string(),
   summary: z.array(z.string()),
   skillGroups: z.array(z.object({ label: z.string(), items: z.array(z.string()) })),
@@ -23,13 +24,14 @@ const resumeSchema = z.object({
 
 const SYSTEM_PROMPT = `You are an expert US resume writer specialising in ATS-optimised, keyword-matched resumes.
 
-You receive a job description (JD) and a candidate's factual history (employers, titles, locations, dates, education, certifications).
+You receive a job description (JD) and the candidate's existing resume as pasted text. From that resume extract ONLY the facts: name, contact details, employers/clients, locations, dates, education and certifications.
 
 Your job:
+- Rewrite each role's job title and all duties to match the JD (keep the title realistic for that role's seniority). Ignore the old duties — write new ones from the JD.
 - Write the professional summary, the skills & tools groups, and every experience bullet yourself.
 - Mirror the JD's exact terminology, tools, systems, standards and responsibilities so the resume matches the JD as closely as possible.
 - Tailor each role's bullets to that role's seniority and era: the most recent role owns the most advanced JD responsibilities, earlier roles carry the supporting/field-level version.
-- Never invent employers, job titles, dates, schools or certifications. Only use the ones provided.
+- Never invent employers/clients, dates, schools or certifications. Only use the ones in the pasted resume, in the same order.
 - Never invent fake metrics, client names or dollar figures.
 - Bold the important JD keywords and phrases inside bullets by wrapping them in double asterisks, like **CPM scheduling**. Bold roughly 2-4 phrases per bullet, never a whole bullet.
 - Bullets start with a strong past/present-tense verb, no pronouns, no trailing period is required but be consistent.
@@ -40,50 +42,26 @@ Your job:
 export async function generateResumeContent(input: {
   jobDescription: string;
   detailLevel: DetailLevel;
-  profile: ProfileInput;
+  resumeText: string;
 }): Promise<ResumeContent> {
   const level = DETAIL_LEVELS.find((item) => item.value === input.detailLevel) ?? DETAIL_LEVELS[1]!;
   const provider = createResponsesProvider();
-
-  const history = input.profile.experience
-    .filter((role) => role.employer.trim() || role.title.trim())
-    .map((role, index) => {
-      const dates = [role.startDate, role.endDate].filter(Boolean).join(" – ");
-      return `Role ${index + 1}
-Employer: ${role.employer}
-Title: ${role.title}
-Location: ${role.location}
-Dates: ${dates}
-Candidate notes (optional context, may be empty): ${role.notes || "none"}`;
-    })
-    .join("\n\n");
-
-  const education = input.profile.education
-    .filter((entry) => entry.degree.trim() || entry.school.trim())
-    .map((entry) => [entry.degree, entry.school, entry.year].filter(Boolean).join(", "))
-    .join("\n");
 
   const prompt = `JOB DESCRIPTION
 """
 ${input.jobDescription}
 """
 
-CANDIDATE NAME: ${input.profile.full_name || "Candidate"}
-CANDIDATE TARGET HEADLINE (optional): ${input.profile.headline || "derive it from the JD title"}
-
-WORK HISTORY (facts — keep employers, titles, locations and dates exactly as given, same order):
-${history || "none provided"}
-
-EDUCATION (keep exactly as given):
-${education || "none provided"}
-
-CERTIFICATIONS (keep exactly as given, you may expand abbreviations):
-${input.profile.certifications || "none provided"}
+CANDIDATE'S CURRENT RESUME (use only for facts: name, contact, employers/clients, locations, dates, education, certifications)
+"""
+${input.resumeText}
+"""
 
 DETAIL LEVEL: ${level.label}
 - Write exactly ${level.summary} professional summary bullets.
-- Write exactly ${level.bullets} bullets for EACH role in the work history.
-- Headline: a short pipe-separated title line matching the JD, e.g. "CONSTRUCTION PROJECT MANAGER | PROJECT CONTROLS | FIELD OPERATIONS".`;
+- Write exactly ${level.bullets} bullets for EACH role found in the resume.
+- Headline: a short pipe-separated title line matching the JD, e.g. "JAVA FULL STACK DEVELOPER | SPRING BOOT | REACT".
+- contact: copy name, email, phone, location and LinkedIn/GitHub link exactly from the resume (empty string if missing).`;
 
   const result = streamText({
     model: provider.responses(RESUME_MODEL),
@@ -97,28 +75,11 @@ DETAIL LEVEL: ${level.label}
   if (!match) throw new Error("The AI did not return a resume. Please try again.");
   const parsed = resumeSchema.safeParse(JSON.parse(match[0]));
   if (!parsed.success) throw new Error("The AI returned an incomplete resume. Please try again.");
-  return normalize(parsed.data, input.profile);
+  return parsed.data;
 }
 
 const JSON_INSTRUCTIONS = `
 
 Respond with ONLY a JSON object (no prose, no code fences) of this exact shape:
-{"headline": string, "summary": string[], "skillGroups": [{"label": string, "items": string[]}], "experience": [{"title": string, "employer": string, "location": string, "dates": string, "bullets": string[]}], "education": string[], "certifications": string}`;
+{"contact": {"fullName": string, "email": string, "phone": string, "location": string, "linkedin": string}, "headline": string, "summary": string[], "skillGroups": [{"label": string, "items": string[]}], "experience": [{"title": string, "employer": string, "location": string, "dates": string, "bullets": string[]}], "education": string[], "certifications": string}`;
 
-function normalize(content: ResumeContent, profile: ProfileInput): ResumeContent {
-  const facts = profile.experience.filter((role) => role.employer.trim() || role.title.trim());
-  return {
-    ...content,
-    headline: content.headline || profile.headline || "",
-    experience: content.experience.map((role, index) => {
-      const fact = facts[index];
-      return {
-        ...role,
-        title: fact?.title?.trim() || role.title,
-        employer: fact?.employer?.trim() || role.employer,
-        location: fact?.location?.trim() || role.location,
-        dates: [fact?.startDate, fact?.endDate].filter(Boolean).join(" – ") || role.dates,
-      };
-    }),
-  };
-}
