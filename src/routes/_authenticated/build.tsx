@@ -147,15 +147,6 @@ function BuildPage() {
           </span>
           <span className="font-display text-lg font-semibold tracking-tight">TailorCV</span>
         </div>
-        <Button
-          variant="ghost"
-          onClick={async () => {
-            await supabase.auth.signOut();
-            navigate({ to: "/" });
-          }}
-        >
-          <LogOut className="size-4" /> Sign out
-        </Button>
       </header>
 
       <div className="mx-auto grid max-w-7xl gap-6 px-6 pb-20 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
