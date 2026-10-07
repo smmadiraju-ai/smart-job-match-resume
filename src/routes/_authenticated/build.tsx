@@ -260,9 +260,14 @@ function BuildPage() {
                     <button className="truncate text-left text-sm font-medium hover:underline" onClick={() => openResume(r.id)}>
                       {r.title}
                     </button>
-                    <Button variant="ghost" size="icon" aria-label="Delete resume" onClick={() => removeResume(r.id)}>
-                      <Trash2 className="size-4" />
-                    </Button>
+                    <div className="flex shrink-0 items-center">
+                      <Button variant="ghost" size="icon" aria-label="Download Word" disabled={downloading} onClick={() => handleDownload(r.id)}>
+                        <FileDown className="size-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" aria-label="Delete resume" onClick={() => removeResume(r.id)}>
+                        <Trash2 className="size-4" />
+                      </Button>
+                    </div>
                   </li>
                 ))}
               </ul>

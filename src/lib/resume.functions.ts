@@ -158,7 +158,9 @@ export const downloadResumeDocx = createServerFn({ method: "POST" })
       linkedin: c?.linkedin ?? profile.data?.linkedin ?? "",
     });
 
-    const fileName = `${(fullName || "resume").replace(/[^\w]+/g, "_")}_Resume.docx`;
+    const clean = (s: string) => s.trim().replace(/[^\w]+/g, "_").replace(/^_+|_+$/g, "");
+    const position = content.headline?.split("|")[0]?.trim() || resume.data.title?.split("—")[0]?.trim() || "Resume";
+    const fileName = `${clean(fullName || "Candidate")}_${clean(position)}.docx`;
     return { base64, fileName };
   });
 
