@@ -63,14 +63,31 @@ DETAIL LEVEL: ${level.label}
 - Headline: a short pipe-separated title line matching the JD, e.g. "JAVA FULL STACK DEVELOPER | SPRING BOOT | REACT".
 - contact: copy name, email, phone, location and LinkedIn/GitHub link exactly from the resume (empty string if missing).`;
 
+  let streamError: unknown;
   const result = streamText({
+    onError: ({ error }) => {
+      streamError = error;
+    },
     model: provider.responses(RESUME_MODEL),
     system: SYSTEM_PROMPT + JSON_INSTRUCTIONS,
     prompt,
     providerOptions: RESPONSES_PROVIDER_OPTIONS,
   });
 
-  const text = await result.text;
+  let text = "";
+  try {
+    text = await result.text;
+  } catch (e) {
+    streamError ??= e;
+  }
+  if (streamError || !text) {
+    const err = streamError as { statusCode?: number; message?: string } | undefined;
+    const msg = String(err?.message ?? "");
+    if (err?.statusCode === 402 || /credit/i.test(msg))
+      throw new Error("AI credits have run out. Add credits to your workspace, then try again.");
+    if (err?.statusCode === 429) throw new Error("The AI is busy right now. Please wait a minute and try again.");
+    throw new Error("The AI couldn't write the resume right now. Please try again shortly.");
+  }
   const match = text.match(/\{[\s\S]*\}/);
   if (!match) throw new Error("The AI did not return a resume. Please try again.");
   const parsed = resumeSchema.safeParse(JSON.parse(match[0]));
